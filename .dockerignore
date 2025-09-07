@@ -1,41 +1,19 @@
-# Exclude development and build artifacts
+# Only exclude what we don't need for Docker builds
 target/
 .git/
 .github/
 .vscode/
 .idea/
-
-# Exclude documentation and examples (for production builds)
-README.md
-CHANGELOG.md
-PRD.txt
-EXAMPLES.md
-docs/
-examples/
-test_files/
-
-# Explicitly include critical files (must come after excludes)
-!Cargo.toml
-!Cargo.lock
-!ck-*/
-!ck-*/Cargo.toml
-!ck-*/src/
-
-# Exclude temporary files
 .DS_Store
-Thumbs.db
 *.tmp
 *.swp
 *~
-
-# Exclude CI/CD cache
-.ck/
-
-# Exclude test artifacts
-coverage/
-junit.xml
-
-# Exclude local development files
 .env
 .env.local
 *.log
+coverage/
+junit.xml
+.ck/
+scripts/
+test_ck.sh
+test_ck_simple.sh

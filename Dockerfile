@@ -12,7 +12,8 @@ WORKDIR /app
 COPY Cargo.toml ./
 # Copy Cargo.lock if it exists (optional for robustness)
 COPY Cargo.loc[k] ./
-COPY */Cargo.toml ./*/
+# Copy workspace member directories and their Cargo.toml files
+COPY ck-*/ ./
 
 # Create dummy source files to build dependencies
 RUN find . -name "Cargo.toml" -exec dirname {} \; | \
@@ -60,12 +61,7 @@ RUN apt-get update && \
 COPY --from=dependencies /app/target target/
 COPY --from=dependencies /usr/local/cargo /usr/local/cargo
 
-# Copy dependency manifests
-COPY Cargo.toml ./
-COPY Cargo.loc[k] ./
-COPY */Cargo.toml ./*/
-
-# Copy actual source code (separate layer)
+# Copy actual source code (includes all Cargo.toml files)
 COPY . .
 
 # Build the actual application
