@@ -8,6 +8,8 @@ target/
 # Explicitly include critical files
 !Cargo.toml
 !Cargo.lock
+!*/Cargo.toml
+!*/src/
 
 # Exclude documentation and examples (for production builds)
 README.md
