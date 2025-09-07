@@ -12,8 +12,8 @@ WORKDIR /app
 COPY Cargo.toml ./
 # Copy Cargo.lock if it exists (optional for robustness)
 COPY Cargo.loc[k] ./
-# Copy workspace member directories and their Cargo.toml files
-COPY ck-*/ ./
+# Copy workspace member Cargo.toml files only
+COPY ck-*/Cargo.toml ck-*/
 
 # Create dummy source files to build dependencies
 RUN find . -name "Cargo.toml" -exec dirname {} \; | \
