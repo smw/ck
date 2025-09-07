@@ -5,18 +5,21 @@ target/
 .vscode/
 .idea/
 
-# Explicitly include critical files
-!Cargo.toml
-!Cargo.lock
-!*/Cargo.toml
-!*/src/
-
 # Exclude documentation and examples (for production builds)
 README.md
-*.md
+CHANGELOG.md
+PRD.txt
+EXAMPLES.md
 docs/
 examples/
 test_files/
+
+# Explicitly include critical files (must come after excludes)
+!Cargo.toml
+!Cargo.lock
+!ck-*/
+!ck-*/Cargo.toml
+!ck-*/src/
 
 # Exclude temporary files
 .DS_Store
