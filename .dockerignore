@@ -5,6 +5,10 @@ target/
 .vscode/
 .idea/
 
+# Explicitly include critical files
+!Cargo.toml
+!Cargo.lock
+
 # Exclude documentation and examples (for production builds)
 README.md
 *.md

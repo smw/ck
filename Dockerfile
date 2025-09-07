@@ -4,12 +4,14 @@
 ###################
 # Dependencies Stage (cached separately)
 ###################
-FROM rust:1.75 as dependencies
+FROM rust:1.75 AS dependencies
 
 WORKDIR /app
 
 # Copy dependency manifests first (layer caching)
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
+# Copy Cargo.lock if it exists (optional for robustness)
+COPY Cargo.loc[k] ./
 COPY */Cargo.toml ./*/
 
 # Create dummy source files to build dependencies
@@ -34,7 +36,7 @@ RUN find . -name "*.rs" -path "*/src/*" -delete
 ###################  
 # Build Stage (only rebuilds when source changes)
 ###################
-FROM rust:1.75 as builder
+FROM rust:1.75 AS builder
 
 WORKDIR /app
 
@@ -43,7 +45,8 @@ COPY --from=dependencies /app/target target/
 COPY --from=dependencies /usr/local/cargo /usr/local/cargo
 
 # Copy dependency manifests
-COPY Cargo.toml Cargo.lock ./
+COPY Cargo.toml ./
+COPY Cargo.loc[k] ./
 COPY */Cargo.toml ./*/
 
 # Copy actual source code (separate layer)
@@ -61,7 +64,7 @@ RUN cp target/release/ck /usr/local/bin/ck
 ###################
 # Runtime Stage (minimal final image)
 ###################
-FROM debian:bookworm-slim as runtime
+FROM debian:bookworm-slim AS runtime
 
 # Install minimal runtime dependencies
 RUN apt-get update && \
