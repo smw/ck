@@ -1,0 +1,32 @@
+# Exclude development and build artifacts
+target/
+.git/
+.github/
+.vscode/
+.idea/
+
+# Exclude documentation and examples (for production builds)
+README.md
+*.md
+docs/
+examples/
+test_files/
+
+# Exclude temporary files
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+*~
+
+# Exclude CI/CD cache
+.ck/
+
+# Exclude test artifacts
+coverage/
+junit.xml
+
+# Exclude local development files
+.env
+.env.local
+*.log

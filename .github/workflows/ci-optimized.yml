@@ -1,0 +1,201 @@
+name: CI (Optimized)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+env:
+  CARGO_TERM_COLOR: always
+  # Optimize cargo builds
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+
+jobs:
+  test:
+    name: Test
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        rust: [stable]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        # Fetch minimal history for faster checkouts
+        fetch-depth: 1
+    
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        toolchain: ${{ matrix.rust }}
+        components: rustfmt, clippy
+
+    # Multi-layer caching strategy (similar to Docker layers)
+    - name: Cache Rust toolchain
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.rustup/toolchains
+          ~/.rustup/update-hashes
+          ~/.rustup/settings.toml
+        key: ${{ runner.os }}-rustup-${{ env.RUSTUP_TOOLCHAIN }}-v1
+        restore-keys: |
+          ${{ runner.os }}-rustup-
+
+    - name: Cache cargo registry (dependencies metadata)
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-registry-
+
+    - name: Cache cargo git checkouts
+      uses: actions/cache@v4  
+      with:
+        path: ~/.cargo/git/db/
+        key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-git-
+
+    # Target directory cached by content hash (like Docker layers)
+    - name: Cache compiled dependencies
+      uses: actions/cache@v4
+      with:
+        path: target/debug/deps/
+        key: ${{ runner.os }}-${{ matrix.rust }}-deps-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.rust }}-deps-
+
+    - name: Cache compiled binaries  
+      uses: actions/cache@v4
+      with:
+        path: |
+          target/debug/build/
+          target/debug/.fingerprint/
+        key: ${{ runner.os }}-${{ matrix.rust }}-build-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs', '*/src/**/*.rs') }}
+        restore-keys: |
+          ${{ runner.os }}-${{ matrix.rust }}-build-${{ hashFiles('**/Cargo.lock') }}-
+          ${{ runner.os }}-${{ matrix.rust }}-build-
+
+    # Check changes to determine what needs rebuilding
+    - name: Check for source changes
+      id: changes
+      run: |
+        if [ -f target/debug/.fingerprint ]; then
+          echo "incremental=true" >> $GITHUB_OUTPUT
+        else
+          echo "incremental=false" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Build dependencies only (if needed)
+      if: steps.changes.outputs.incremental == 'false'
+      run: |
+        # Build dependencies without our code to cache them separately
+        cargo build --verbose
+        # Clean our project artifacts but keep dependencies
+        find target/debug -name "ck*" -type f -delete 2>/dev/null || true
+        find target/debug -name "*ck*" -type d -exec rm -rf {} + 2>/dev/null || true
+
+    - name: Run tests
+      run: cargo test --verbose
+
+    - name: Check formatting
+      run: cargo fmt --all -- --check  
+      if: matrix.os == 'ubuntu-latest'
+    
+    - name: Run clippy
+      run: cargo clippy --all-targets --all-features -- -D warnings
+      if: matrix.os == 'ubuntu-latest'
+
+  build:
+    name: Build
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 1
+
+    - name: Install Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+
+    # Reuse the same multi-layer caching strategy
+    - name: Cache Rust toolchain
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.rustup/toolchains
+          ~/.rustup/update-hashes
+          ~/.rustup/settings.toml
+        key: ${{ runner.os }}-rustup-${{ env.RUSTUP_TOOLCHAIN }}-v1
+        restore-keys: |
+          ${{ runner.os }}-rustup-
+
+    - name: Cache cargo registry
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+        key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-registry-
+
+    - name: Cache cargo git checkouts
+      uses: actions/cache@v4  
+      with:
+        path: ~/.cargo/git/db/
+        key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-cargo-git-
+
+    # Release build caching (separate from debug)
+    - name: Cache compiled dependencies (release)
+      uses: actions/cache@v4
+      with:
+        path: target/release/deps/
+        key: ${{ runner.os }}-release-deps-${{ hashFiles('**/Cargo.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-release-deps-
+
+    - name: Cache compiled binaries (release)
+      uses: actions/cache@v4
+      with:
+        path: |
+          target/release/build/
+          target/release/.fingerprint/
+        key: ${{ runner.os }}-release-build-${{ hashFiles('**/Cargo.lock') }}-${{ hashFiles('src/**/*.rs', '*/src/**/*.rs') }}
+        restore-keys: |
+          ${{ runner.os }}-release-build-${{ hashFiles('**/Cargo.lock') }}-
+          ${{ runner.os }}-release-build-
+
+    - name: Build release
+      run: cargo build --release --verbose
+    
+    - name: Test binary runs (Unix)
+      run: ./target/release/ck --version
+      if: matrix.os != 'windows-latest'
+    
+    - name: Test binary runs (Windows)
+      run: ./target/release/ck.exe --version
+      if: matrix.os == 'windows-latest'
+
+    # Upload binary artifacts for further use
+    - name: Upload binary artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: ck-${{ matrix.os }}
+        path: |
+          target/release/ck${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+        retention-days: 7
