@@ -1,12 +1,16 @@
 # Multi-stage Dockerfile with layer caching optimization
 # Similar to Kubernetes staged deployments
 
+ARG RUST_VERSION=1.85
 ###################
 # Dependencies Stage (cached separately)
 ###################
-FROM rust:1.75 AS dependencies
+FROM rust:${RUST_VERSION} AS dependencies
 
 WORKDIR /app
+
+# Verify Rust toolchain supports 2024 edition
+RUN rustc -V && cargo -V
 
 # Copy dependency manifests first (layer caching)
 COPY Cargo.toml ./
@@ -52,7 +56,7 @@ RUN find . -name "*.rs" -path "*/src/*" -delete
 ###################  
 # Build Stage (only rebuilds when source changes)
 ###################
-FROM rust:1.75 AS builder
+FROM rust:${RUST_VERSION} AS builder
 
 WORKDIR /app
 
