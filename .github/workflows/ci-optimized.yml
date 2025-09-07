@@ -84,9 +84,10 @@ jobs:
           ${{ runner.os }}-${{ matrix.rust }}-build-${{ hashFiles('**/Cargo.lock') }}-
           ${{ runner.os }}-${{ matrix.rust }}-build-
 
-    # Check changes to determine what needs rebuilding
-    - name: Check for source changes
-      id: changes
+    # Check changes to determine what needs rebuilding (cross-platform)
+    - name: Check for source changes (Unix)
+      if: runner.os != 'Windows'
+      id: changes-unix
       run: |
         if [ -f target/debug/.fingerprint ]; then
           echo "incremental=true" >> $GITHUB_OUTPUT
@@ -94,14 +95,33 @@ jobs:
           echo "incremental=false" >> $GITHUB_OUTPUT
         fi
 
-    - name: Build dependencies only (if needed)
-      if: steps.changes.outputs.incremental == 'false'
+    - name: Check for source changes (Windows)
+      if: runner.os == 'Windows'
+      id: changes-windows
+      run: |
+        if (Test-Path "target/debug/.fingerprint") {
+          echo "incremental=true" >> $env:GITHUB_OUTPUT
+        } else {
+          echo "incremental=false" >> $env:GITHUB_OUTPUT
+        }
+
+    - name: Build dependencies only (Unix)
+      if: runner.os != 'Windows' && steps.changes-unix.outputs.incremental == 'false'
       run: |
         # Build dependencies without our code to cache them separately
         cargo build --verbose
         # Clean our project artifacts but keep dependencies
         find target/debug -name "ck*" -type f -delete 2>/dev/null || true
         find target/debug -name "*ck*" -type d -exec rm -rf {} + 2>/dev/null || true
+
+    - name: Build dependencies only (Windows)
+      if: runner.os == 'Windows' && steps.changes-windows.outputs.incremental == 'false'
+      run: |
+        # Build dependencies without our code to cache them separately
+        cargo build --verbose
+        # Clean our project artifacts but keep dependencies (PowerShell)
+        Get-ChildItem -Path "target/debug" -Name "ck*" -File | Remove-Item -Force -ErrorAction SilentlyContinue
+        Get-ChildItem -Path "target/debug" -Name "*ck*" -Directory | Remove-Item -Force -Recurse -ErrorAction SilentlyContinue
 
     - name: Run tests
       run: cargo test --verbose
@@ -192,10 +212,18 @@ jobs:
       if: matrix.os == 'windows-latest'
 
     # Upload binary artifacts for further use
-    - name: Upload binary artifacts
+    - name: Upload binary artifacts (Unix)
+      if: runner.os != 'Windows'
       uses: actions/upload-artifact@v4
       with:
         name: ck-${{ matrix.os }}
-        path: |
-          target/release/ck${{ matrix.os == 'windows-latest' && '.exe' || '' }}
+        path: target/release/ck
+        retention-days: 7
+
+    - name: Upload binary artifacts (Windows)
+      if: runner.os == 'Windows'
+      uses: actions/upload-artifact@v4
+      with:
+        name: ck-${{ matrix.os }}
+        path: target/release/ck.exe
         retention-days: 7
