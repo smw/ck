@@ -22,6 +22,14 @@ RUN find . -name "Cargo.toml" -exec dirname {} \; | \
         echo "pub fn add(left: usize, right: usize) -> usize { left + right }" > "$dir/src/lib.rs"; \
     done
 
+# Install build dependencies for vendored OpenSSL
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        pkg-config \
+        libssl-dev \
+        && rm -rf /var/lib/apt/lists/*
+
 # Build dependencies (this layer gets cached)
 RUN --mount=type=cache,target=/usr/local/cargo/registry \
     --mount=type=cache,target=/usr/local/cargo/git \
@@ -39,6 +47,14 @@ RUN find . -name "*.rs" -path "*/src/*" -delete
 FROM rust:1.75 AS builder
 
 WORKDIR /app
+
+# Install build dependencies for vendored OpenSSL
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        build-essential \
+        pkg-config \
+        libssl-dev \
+        && rm -rf /var/lib/apt/lists/*
 
 # Copy cached dependencies from previous stage
 COPY --from=dependencies /app/target target/
